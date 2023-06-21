@@ -4,15 +4,21 @@ import xlwings as xw
 import shutil
 from datetime import datetime
 import logging
+import traceback
+
+
+class CustomException(BaseException):
+    pass
 
 
 class MasterIndex:
-    def __init__(self, config_file_path="config.xlsx", overwrite_log=True):
+    def __init__(self, config_file_path="config.xlsm", overwrite_log=True):
         self.log_file = "sortx.log"
         self.setup_logging(overwrite_log)
         self.load_config(config_file_path)
         self.load_mapper(config_file_path)
-        self.check_master_index()
+        self.load_required_columns(config_file_path)
+        self.load_master_index()
 
     def setup_logging(self, overwrite_log=True):
         logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -30,7 +36,7 @@ class MasterIndex:
         logging.getLogger().addHandler(file_handler)
 
     def load_config(self, config_file_path):
-        dfconfig = pd.read_excel(config_file_path, sheet_name="config", header=0)
+        dfconfig = pd.read_excel(config_file_path, sheet_name="config", header=0).fillna("")
         self.config = dict(zip(dfconfig.iloc[:, 0], dfconfig.iloc[:, 1]))
 
     def load_mapper(self, config_file_path):
@@ -38,16 +44,45 @@ class MasterIndex:
         self.mapper = dict(zip(dfmapper.iloc[:, 0], dfmapper.iloc[:, 1]))
         self.mandate_columns = list(self.mapper.values())
 
-    def check_master_index(self):
-        self.path = self.config["master_index_path"]
-        if not os.path.exists(self.path):
+    def load_required_columns(self, config_file_path):
+        dfrequired = pd.read_excel(config_file_path, sheet_name="field", header=0)
+        self.required_columns = list(self.mapper.keys()) + list(dfrequired.iloc[:, 0])
+
+    def load_master_index(self):
+        try:
+            self.path = self.config["master_index_path"]
+            if os.path.exists(self.path):
+                logging.info(f"Master index file found at {self.path}")
+            elif self.path == "":
+                error_msg = "Master index path not specified in config file"
+                logging.error(error_msg)
+                raise CustomException(error_msg)
+
+        except (FileNotFoundError, TypeError) as e:
             error_msg = f"Master index file not found at {self.path}"
             logging.error(error_msg)
-            raise FileNotFoundError(error_msg)
-        else:
-            logging.info(f"Master index file found at {self.path}")
+            raise CustomException(error_msg)
 
-    def merge_excel(self, folder_path: str, index_col=0) -> pd.DataFrame:
+        try:
+            dfmaster = pd.read_excel(self.path, sheet_name=0, header=0)
+            dfmaster = dfmaster[self.required_columns]
+            if not set(self.required_columns).issubset(set(dfmaster.columns)):
+                missing_columns = set(self.required_columns) - set(dfmaster.columns)
+                error_msg = (
+                    'Ensure Master Index has all columns specified in the config file ("A" columns of mapper + field sheet)\n'
+                    f"MISSING COLUMNS: {', '.join(missing_columns)}\n"
+                    "Please update those columns in the master index and try again."
+                )
+                logging.error(error_msg)
+                raise ValueError(error_msg)
+            else:
+                self.dfmaster = dfmaster
+
+        except Exception as e:
+            logging.error(e)
+            raise e
+
+    def merge_excel(self, folder_path):
         try:
             dfs = []
             skip_rows = self.config["header_row_number"] - 1
@@ -66,31 +101,34 @@ class MasterIndex:
             # TODO: Add a check to see if all column names are same across all files
 
             dfmerged = dfmerged.rename(columns=reversed_mapper)
-            return dfmerged
+            dfmerged = pd.concat([self.dfmaster, dfmerged], ignore_index=True)
+            self.dfmaster = dfmerged
 
         except (ValueError, FileNotFoundError) as e:
             logging.error(e)
             print(e)
 
-    def write_to_excel(self, df, sheet_name=0):
-        app = xw.App(visible=False)
-        excel_file = self.path
-        book = xw.Book(excel_file)
-        sheet = book.sheets[sheet_name]
+    def write_to_excel(self, df, sheet_name=0, overwrite=False):
+        try:
+            app = xw.App(visible=False)
+            excel_file = self.path
+            book = xw.Book(excel_file)
+            sheet = book.sheets[sheet_name]
 
-        # TODO: Add a variable to ask user if he wants to append or overwrite
+            if overwrite == True:
+                last_row = 0
+                sheet.range(f"B{last_row+1}:Z1000").clear_contents()
+                sheet.range(f"B{last_row+1}").options(index=True, header=True).value = df
+            else:
+                last_row = sheet.api.Cells(sheet.api.Rows.Count, "B").End(-4162).Row
+                sheet.range(f"B{last_row+1}").options(index=True, header=False).value = df
+            book.save()
+            book.close()
+            app.quit()
 
-        last_row = sheet.api.Cells(sheet.api.Rows.Count, "B").End(-4162).Row
-        sheet.range(f"B{last_row+1}").options(index=True, header=True).value = df
-        book.save()
-        book.close()
-        app.quit()
+        except Exception as e:
+            print(traceback.format_exc())
 
+    def update_master_index(self):
+        self.write_to_excel(self.dfmaster, overwrite=True)
 
-mi = MasterIndex()
-
-folder_path = r"Need Lists\NL 1\ELECTRICA"
-
-dfmerged = mi.merge_excel(folder_path)
-
-# mi.write_to_excel(dfmerged)
