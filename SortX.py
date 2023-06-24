@@ -26,14 +26,16 @@ class MasterIndex:
         if overwrite_log:
             with open(self.log_file, "w"):
                 pass
-            root_logger = logging.getLogger()
-            for handler in root_logger.handlers:
-                root_logger.removeHandler(handler)
+            self.logger = logging.getLogger(__name__)
+            for handler in self.logger.handlers:
+                self.logger.removeHandler(handler)
 
         file_handler = logging.FileHandler(self.log_file)
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
-        logging.getLogger().addHandler(file_handler)
+        self.logger.addHandler(file_handler)
+
+        return self.logger
 
     def load_config(self, config_file_path):
         dfconfig = pd.read_excel(config_file_path, sheet_name="config", header=0).fillna("")
@@ -52,15 +54,15 @@ class MasterIndex:
         try:
             self.path = self.config["master_index_path"]
             if os.path.exists(self.path):
-                logging.info(f"Master index file found at {self.path}")
+                self.logger.info(f"Master index file found at {self.path}")
             elif self.path == "":
                 error_msg = "Master index path not specified in config file"
-                logging.error(error_msg)
+                self.logger.error(error_msg)
                 raise CustomException(error_msg)
 
         except (FileNotFoundError, TypeError) as e:
-            error_msg = f"Master index file not found at {self.path}"
-            logging.error(error_msg)
+            error_msg = f"{e}\nMaster index file not found at {self.path}"
+            self.logger.error(error_msg)
             raise CustomException(error_msg)
 
         try:
@@ -73,14 +75,15 @@ class MasterIndex:
                     f"MISSING COLUMNS: {', '.join(missing_columns)}\n"
                     "Please update those columns in the master index and try again."
                 )
-                logging.error(error_msg)
+                self.logger.error(error_msg)
                 raise ValueError(error_msg)
             else:
                 self.dfmaster = dfmaster
 
         except Exception as e:
-            logging.error(e)
-            raise e
+            error_msg = f"{e}\nError while reading master index file"
+            self.logger.error(error_msg)
+            raise CustomException(error_msg)
 
     def merge_excel(self, folder_path):
         try:
@@ -88,47 +91,52 @@ class MasterIndex:
             skip_rows = self.config["header_row_number"] - 1
             index_col = self.config["sno_column"] - 1 if self.config["sno_column"] != "" else 0
 
-            for file in os.listdir(folder_path):
-                if file.endswith((".xlsx", ".xls")):
-                    df = pd.read_excel(
-                        os.path.join(folder_path, file), skiprows=skip_rows, index_col=index_col
-                    )
-                    df = df[self.mandate_columns]
-                    dfs.append(df)
+            for root, dirs, files in os.walk(folder_path):
+                for file in files:
+                    if file.endswith((".xlsx", ".xls")):
+                        df = pd.read_excel(
+                            os.path.join(root, file), skiprows=skip_rows, index_col=index_col
+                        )
+                        df = df[self.mandate_columns]
+                        df["imported_from"] = file
+                        if set(self.dfmaster["imported_from"]).isdisjoint(set(df["imported_from"])):
+                            dfs.append(df)
             dfmerged = pd.concat(dfs, ignore_index=True)
             reversed_mapper = {v: k for k, v in self.mapper.items()}
 
             # TODO: Add a check to see if all column names are same across all files
+
+            # TODO: Add a column for excel file name
 
             dfmerged = dfmerged.rename(columns=reversed_mapper)
             dfmerged = pd.concat([self.dfmaster, dfmerged], ignore_index=True)
             self.dfmaster = dfmerged
 
         except (ValueError, FileNotFoundError) as e:
-            logging.error(e)
-            print(e)
+            error_msg = f"{e}\n Files are already merged or not found in the folder {folder_path}"
+            self.logger.error(error_msg)
+            raise CustomException(error_msg)
 
     def write_to_excel(self, df, sheet_name=0, overwrite=False):
         try:
-            app = xw.App(visible=False)
             excel_file = self.path
-            book = xw.Book(excel_file)
-            sheet = book.sheets[sheet_name]
+            with xw.App(visible=False) as app:
+                with xw.Book(excel_file) as book:
+                    sheet = book.sheets[sheet_name]
 
-            if overwrite == True:
-                last_row = 0
-                sheet.range(f"B{last_row+1}:Z1000").clear_contents()
-                sheet.range(f"B{last_row+1}").options(index=True, header=True).value = df
-            else:
-                last_row = sheet.api.Cells(sheet.api.Rows.Count, "B").End(-4162).Row
-                sheet.range(f"B{last_row+1}").options(index=True, header=False).value = df
-            book.save()
-            book.close()
-            app.quit()
+                    if overwrite == True:
+                        last_row = 0
+                        sheet.range(f"B{last_row+1}:Z1000").clear_contents()
+                        sheet.range(f"B{last_row+1}").options(index=True, header=True).value = df
+                    else:
+                        last_row = sheet.api.Cells(sheet.api.Rows.Count, "B").End(-4162).Row
+                        sheet.range(f"B{last_row+1}").options(index=True, header=False).value = df
+                    book.save()
 
         except Exception as e:
-            print(traceback.format_exc())
+            error_msg = f"Error in writing to excel file {excel_file} : {e}"
+            raise CustomException(error_msg)
 
-    def update_master_index(self):
+    def update_new_list(self, folder_path):
+        self.merge_excel(folder_path)
         self.write_to_excel(self.dfmaster, overwrite=True)
-
