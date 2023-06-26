@@ -140,3 +140,33 @@ class MasterIndex:
     def update_new_list(self, folder_path):
         self.merge_excel(folder_path)
         self.write_to_excel(self.dfmaster, overwrite=True)
+
+    def update_folder_link(self, folder_path):
+        try:
+            for root, dirs, files in os.walk(folder_path):
+                for doc_no in dirs:
+                    if doc_no in self.dfmaster["doc_no"].values.any():
+                        self.dfmaster.loc[
+                            self.dfmaster["doc_no"] == doc_no, "source_path"
+                        ] = os.path.join(root, doc_no)
+                        self.dfmaster.loc[
+                            self.dfmaster["doc_no"] == doc_no, "received_status"
+                        ] = "closed"
+                        self.dfmaster.loc[
+                            self.dfmaster["doc_no"] == doc_no, "processed_date"
+                        ] = datetime.now().date()
+                    else:
+                        entry_path = os.path.join(root, doc_no)
+                        for sub_root, directories, files in os.walk(entry_path):
+                            if not directories:
+                                self.dfmaster.loc[len(self.dfmaster)] = {
+                                    "doc_no": sub_root.split("\\")[-1],
+                                    "source_path": sub_root,
+                                    "received_status": "closed",
+                                    "imported_from": "extra files",
+                                    "processed_date": datetime.now().date(),
+                                }
+        except Exception as e:
+            error_msg = f"{e}\nError while updating folder link"
+            self.logger.error(error_msg)
+            raise CustomException(error_msg)
