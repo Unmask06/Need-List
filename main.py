@@ -1,25 +1,67 @@
+import sys
 import traceback
-from SortX import CustomException, MasterIndex
 
+from PyQt6 import QtWidgets
 
-try:
-    mi = MasterIndex()
+from gui import MainWindow
+from sortx import CustomException, MasterIndex, MiDbParser, MiLister
 
-    #if new list arrives, update master index
-    xl_folder_path = r"Need Lists\NL 1\ELECTRICAL"
-    mi.update_new_list(xl_folder_path)
+if __name__ == "__main__":
+    app = QtWidgets.QApplication([])
+    window = MainWindow()
 
-    folder_path = r"C:\Users\IDM252577\Desktop\Python Projects\Utility\Need List\Received Files\b1"
-    mi.update_folder_link(folder_path)
-    
-    #if new files arrive, update master index
-    df = mi.dfmaster
+    widget = {
+        "config": window.tbrowse_Config,
+        "xl_folder_path": window.tbrowse_Merge,
+        "file_path": window.tbrowse_FilePath,
+    }
+    paths = {"config": "", "xl_folder_path": "", "file_path": ""}
 
-    mi.write_to_excel(mi.dfmaster,overwrite=True)
+    def get_path(field, text_box_dict=widget):
+        for key, widget in text_box_dict.items():
+            if field == key:
+                path = widget.toPlainText()
+                return path
 
-    mi.logger.info("Done")
+    def set_path(field):
+        paths[field] = get_path(field)
 
+    def run_merge():
+        try:
+            for key, value in paths.items():
+                set_path(key)
 
-except CustomException as e:
-    print(e)
-    print(traceback.format_exc())
+            lister = MiLister()
+            lister.merge_excel(paths["xl_folder_path"])
+            lister.write_to_excel(lister.dfmaster, overwrite=True)
+
+            lister.logger.info("Done! Files merged.")
+
+        except CustomException as e:
+            print(e)
+            # print(traceback.format_exc())
+
+    def run_update_folder_link():
+        try:
+            for key, value in paths.items():
+                set_path(key)
+
+            lister = MiLister()
+            lister.update_folder_link(paths["file_path"])
+            lister.write_to_excel(lister.dfmaster, overwrite=True)
+
+            lister.logger.info("Done! File Path updated.")
+
+        except CustomException as e:
+            print(e)
+            print(traceback.format_exc())
+
+    def run_open_master_index():
+        lister = MiLister()
+        lister.open_master_index()
+
+    window.show()
+    window.pb_RunMerge.clicked.connect(run_merge)
+    window.pb_RunFilePath.clicked.connect(run_update_folder_link)
+    window.pb_RunOpenMi.clicked.connect(run_open_master_index)
+    sys.exit(app.exec())
