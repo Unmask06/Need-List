@@ -1,0 +1,9 @@
+*.db
+/.venv
+/__pycache__
+*.exe
+/bkup
+/*Sorted*
+/*Received*
+/*Need*
+*trail*
