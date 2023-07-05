@@ -31,7 +31,7 @@ if __name__ == "__main__":
             for key, value in paths.items():
                 set_path(key)
 
-            lister = MiLister()
+            lister = MiLister(config_file_path=paths["config"])
             lister.merge_excel(paths["xl_folder_path"])
             lister.write_to_excel(lister.dfmaster, overwrite=True)
 
@@ -46,7 +46,7 @@ if __name__ == "__main__":
             for key, value in paths.items():
                 set_path(key)
 
-            lister = MiLister()
+            lister = MiLister(config_file_path=paths["config"])
             lister.update_folder_link(paths["file_path"])
             lister.write_to_excel(lister.dfmaster, overwrite=True)
 
@@ -57,7 +57,7 @@ if __name__ == "__main__":
             print(traceback.format_exc())
 
     def run_open_master_index():
-        lister = MiLister()
+        lister = MiLister(config_file_path=paths["config"])
         lister.open_master_index()
 
     window.show()

@@ -15,10 +15,11 @@ class CustomException(BaseException):
 class MasterIndex:
     def __init__(self, config_file_path="config.xlsm", overwrite_log=True):
         self.log_file = "sortx.log"
+        self.config_file_path = config_file_path
         self.setup_logging(overwrite_log)
-        self.load_config(config_file_path)
-        self.load_mapper(config_file_path)
-        self.load_required_columns(config_file_path)
+        self.load_config()
+        self.load_mapper()
+        self.load_required_columns()
         self.load_master_index()
 
     def setup_logging(self, overwrite_log=True):
@@ -38,17 +39,17 @@ class MasterIndex:
 
         return self.logger
 
-    def load_config(self, config_file_path):
-        dfconfig = pd.read_excel(config_file_path, sheet_name="config", header=0).fillna("")
+    def load_config(self):
+        dfconfig = pd.read_excel(self.config_file_path, sheet_name="config", header=0).fillna("")
         self.config = dict(zip(dfconfig.iloc[:, 0], dfconfig.iloc[:, 1]))
 
-    def load_mapper(self, config_file_path):
-        dfmapper = pd.read_excel(config_file_path, sheet_name="mapper", header=0)
+    def load_mapper(self):
+        dfmapper = pd.read_excel(self.config_file_path, sheet_name="mapper", header=0)
         self.mapper = dict(zip(dfmapper.iloc[:, 0], dfmapper.iloc[:, 1]))
         self.mandate_columns = list(self.mapper.values())
 
-    def load_required_columns(self, config_file_path):
-        dfrequired = pd.read_excel(config_file_path, sheet_name="field", header=0)
+    def load_required_columns(self):
+        dfrequired = pd.read_excel(self.config_file_path, sheet_name="field", header=0)
         self.required_columns = list(self.mapper.keys()) + list(dfrequired.iloc[:, 0])
 
     def load_master_index(self):
