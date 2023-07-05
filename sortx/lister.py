@@ -9,10 +9,10 @@ import shutil
 from datetime import datetime
 
 
-from .setup import MasterIndex_Setup , CustomException
+from .master_index import MasterIndex , CustomException
 
 
-class MasterIndex_Lister(MasterIndex_Setup):
+class MiLister(MasterIndex):
     def merge_excel(self, folder_path):
             try:
                 dfs = []

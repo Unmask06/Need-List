@@ -1,10 +1,10 @@
+import sqlite3
+import pandas as pd
 
 
+from .master_index import MasterIndex , CustomException
 
-from .setup import MasterIndex_Setup , CustomException
-from .lister import MasterIndex_Lister
-
-class DB_Parser(MasterIndex_Setup):
+class MiDbParser(MasterIndex):
 
     def __init__(self, db_file_path="database.db"):
         super().__init__(db_file_path)
