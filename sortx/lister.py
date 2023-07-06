@@ -1,68 +1,43 @@
 import os
-import sys
-import logging
-import traceback
+from datetime import datetime
 
 import pandas as pd
 import xlwings as xw
-import shutil
-from datetime import datetime
 
-
-from .master_index import MasterIndex , CustomException
+from .master_index import CustomException, MasterIndex
 
 
 class MiLister(MasterIndex):
     def merge_excel(self, folder_path):
-            try:
-                dfs = []
-                skip_rows = self.config["header_row_number"] - 1
-                index_col = self.config["sno_column"] - 1 if self.config["sno_column"] != "" else 0
-
-                for root, dirs, files in os.walk(folder_path):
-                    for file in files:
-                        if file.endswith((".xlsx", ".xls")):
-                            df = pd.read_excel(
-                                os.path.join(root, file), skiprows=skip_rows, index_col=index_col
-                            )
-                            df = df[self.mandate_columns]
-                            df["imported_from"] = file
-                            if set(self.dfmaster["imported_from"]).isdisjoint(set(df["imported_from"])):
-                                dfs.append(df)
-                dfmerged = pd.concat(dfs, ignore_index=True)
-                reversed_mapper = {v: k for k, v in self.mapper.items()}
-
-                # TODO: Add a check to see if all column names are same across all files
-
-                # TODO: Add a column for excel file name
-
-                dfmerged = dfmerged.rename(columns=reversed_mapper)
-                dfmerged = pd.concat([self.dfmaster, dfmerged], ignore_index=True)
-                self.dfmaster = dfmerged
-
-            except (ValueError, FileNotFoundError) as e:
-                error_msg = f"{e}\n Files are already merged or not found in the folder {folder_path}"
-                self.logger.error(error_msg)
-                raise CustomException(error_msg)
-
-    def write_to_excel(self, df, sheet_name=0, overwrite=False):
         try:
-            excel_file = self.path
-            with xw.App(visible=False) as app:
-                with xw.Book(excel_file) as book:
-                    sheet = book.sheets[sheet_name]
+            dfs = []
+            skip_rows = self.config["header_row_number"] - 1
+            index_col = self.config["sno_column"] - 1 if self.config["sno_column"] != "" else 0
 
-                    if overwrite == True:
-                        last_row = 0
-                        sheet.range(f"B{last_row+1}:Z1000").clear_contents()
-                        sheet.range(f"B{last_row+1}").options(index=True, header=True).value = df
-                    else:
-                        last_row = sheet.api.Cells(sheet.api.Rows.Count, "B").End(-4162).Row
-                        sheet.range(f"B{last_row+1}").options(index=True, header=False).value = df
-                    book.save()
+            for root, dirs, files in os.walk(folder_path):
+                for file in files:
+                    if file.endswith((".xlsx", ".xls")):
+                        df = pd.read_excel(
+                            os.path.join(root, file), skiprows=skip_rows, index_col=index_col
+                        )
+                        df = df[self.mandate_columns]
+                        df["imported_from"] = file
+                        if set(self.dfmaster["imported_from"]).isdisjoint(set(df["imported_from"])):
+                            dfs.append(df)
+            dfmerged = pd.concat(dfs, ignore_index=True)
+            reversed_mapper = {v: k for k, v in self.mapper.items()}
 
-        except Exception as e:
-            error_msg = f"Error in writing to excel file {excel_file} : {e}"
+            # TODO: Add a check to see if all column names are same across all files
+
+            # TODO: Add a column for excel file name
+
+            dfmerged = dfmerged.rename(columns=reversed_mapper)
+            dfmerged = pd.concat([self.dfmaster, dfmerged], ignore_index=True)
+            self.dfmaster = dfmerged
+
+        except (ValueError, FileNotFoundError) as e:
+            error_msg = f"{e}\n Files are already merged or not found in the folder {folder_path}"
+            self.logger.error(error_msg)
             raise CustomException(error_msg)
 
     def update_new_list(self, folder_path):

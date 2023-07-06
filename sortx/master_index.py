@@ -1,8 +1,5 @@
 import logging
 import os
-import shutil
-import traceback
-from datetime import datetime
 
 import pandas as pd
 import xlwings as xw
@@ -69,24 +66,33 @@ class MasterIndex:
 
         try:
             dfmaster = pd.read_excel(self.path, sheet_name=0, header=0)
-            dfmaster = dfmaster[self.required_columns]
-            if not set(self.required_columns).issubset(set(dfmaster.columns)):
-                missing_columns = set(self.required_columns) - set(dfmaster.columns)
-                error_msg = (
-                    'Ensure Master Index has all columns specified in the config file ("A" columns of mapper + field sheet)\n'
-                    f"MISSING COLUMNS: {', '.join(missing_columns)}\n"
-                    "Please update those columns in the master index and try again."
-                )
-                self.logger.error(error_msg)
-                raise ValueError(error_msg)
-            else:
-                self.dfmaster = dfmaster
+            dfmaster = dfmaster.reindex(columns=self.required_columns)
+            self.dfmaster = dfmaster
 
         except Exception as e:
             error_msg = f"{e}\nError while reading master index file"
             self.logger.error(error_msg)
             raise CustomException(error_msg)
-        
+
     def open_master_index(self):
         xw.Book(self.path)
+    
+    def write_to_excel(self, sheet_name=0, overwrite=True):
+        try:
+            excel_file = self.path
+            with xw.App(visible=False) as app:
+                with xw.Book(excel_file) as book:
+                    sheet = book.sheets[sheet_name]
 
+                    if overwrite == True:
+                        last_row = 0
+                        sheet.range(f"B{last_row+1}:Z1000").clear_contents()
+                        sheet.range(f"B{last_row+1}").options(index=True, header=True).value = self.dfmaster
+                    else:
+                        last_row = sheet.api.Cells(sheet.api.Rows.Count, "B").End(-4162).Row
+                        sheet.range(f"B{last_row+1}").options(index=True, header=False).value = self.dfmaster
+                    book.save()
+
+        except Exception as e:
+            error_msg = f"Error in writing to excel file {excel_file} : {e}"
+            raise CustomException(error_msg)
