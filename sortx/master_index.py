@@ -52,10 +52,8 @@ class MasterIndex:
     def load_master_index(self):
         try:
             self.path = self.config["master_index_path"]
-            if os.path.exists(self.path):
-                self.logger.info(f"Master index file found at {self.path}")
-            elif self.path == "":
-                error_msg = "Master index path not specified in config file"
+            if not os.path.exists(self.path):
+                error_msg = "Master index path not specified in config file or NOT FOUND"
                 self.logger.error(error_msg)
                 raise CustomException(error_msg)
 

@@ -1,5 +1,6 @@
 import sys
 import traceback
+import time
 
 from PyQt6 import QtWidgets
 

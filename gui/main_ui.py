@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QFileDialog,
     QMainWindow,
+    QProgressBar,
     QPushButton,
     QTextBrowser,
 )
@@ -40,18 +41,32 @@ class MainWindow(QMainWindow):
             dialog_func = button_info["dialog"]
 
             button.clicked.connect(
-                    lambda btn=button, dlg=dialog_func, wgt=widget: self.open_dialog(
-                        dlg, wgt
-                    )
-                )
-        
+                lambda btn=button, dlg=dialog_func, wgt=widget: self.open_dialog(dlg, wgt)
+            )
 
     def open_dialog(self, dialog_func, widget):
         if dialog_func == QFileDialog.getExistingDirectory:
-            folder_path = dialog_func(self,caption = "Select Folder",directory = "")
+            folder_path = dialog_func(self, caption="Select Folder", directory="")
             if folder_path:
                 widget.setText(folder_path)
         elif dialog_func == QFileDialog.getOpenFileName:
-            file_path = dialog_func(self,caption = "Select File", directory = "",filter = "Excel Files (*.xlsm *.xlsx *.xls)")
+            file_path = dialog_func(
+                self,
+                caption="Select File",
+                directory="",
+                filter="Excel Files (*.xlsm *.xlsx *.xls)",
+            )
             if file_path:
                 widget.setText(file_path[0])
+
+    def show_progress_bar(self):
+        self.progressBar = QProgressBar()
+        self.progressBar.setRange(0, 100)
+        self.progressBar.show()
+        self.progressBar.setValue(0)
+
+    def increase_progress(self, value, max_value):
+        current_value = int(value / max_value * 100)
+        self.progressBar.setValue(current_value)
+        if current_value == 100:
+            self.progressBar.hide()

@@ -7,7 +7,7 @@ from .master_index import CustomException, MasterIndex
 
 
 class MiDbParser(MasterIndex):
-    def __init__(self,config_file_path):
+    def __init__(self, config_file_path):
         super().__init__()
         self.config_db(self.config_file_path)
         self._load_db()
@@ -67,28 +67,30 @@ class MiDbParser(MasterIndex):
 
     def fill_missing_data(self):
         try:
-            for i, row in self.dfmaster.iterrows():
-                    if any(
-                        row[col] == "" or pd.isna(row[col]) for col in self.dbmapper if col != "doc_no"
-                    ):
-                        document = str(row["doc_no"]).replace("/", "")
-                        matching_row = self.db.loc[
-                            self.db[self.dbmapper["doc_no"]].str.replace("/", "") == document
-                        ]
-                        if not matching_row.empty:
-                            for col in self.dbmapper:
-                                if col != "doc_no" and (pd.isna(row[col]) or row[col] == ""):
-                                    self.dfmaster.at[i, col] = matching_row[self.dbmapper[col]].values[
-                                        0
-                                    ]
+            merge_cols = [col for col in self.dbmapper if col != "doc_no"]
+
+            joined_df = self.preprocess_the_db()
+
+            for col in merge_cols:
+                mask = (self.dfmaster[col].isna()) | (self.dfmaster[col] == "")
+                self.dfmaster.loc[mask, col] = joined_df.loc[mask, self.dbmapper[col]]
+
+            self.dfmaster = self.dfmaster[self.required_columns]
             self.logger.info("Missing data filled from database")
 
         except KeyError as ke:
-            error_msg  = f"Check the database mapping in config file: {ke}"
+            error_msg = f"Check the database mapping in config file: {ke}"
             self.logger.error(error_msg)
             raise CustomException(error_msg)
 
         except Exception as e:
-            error_msg = f"Error occurred while filling data from database: {e} in row {i}"
-            self.logger.error(error_msg)
-            raise CustomException(error_msg)
+            self.logger.error("Error in filling missing data: {}".format(str(e)))
+
+    def preprocess_the_db(self):
+            mod_dfmaster = self.dfmaster.copy()
+            mod_dfmaster["doc_no"] = mod_dfmaster["doc_no"].apply(lambda x: str(x).replace("/", ""))
+            mod_db = self.db.copy()
+            mod_db[self.dbmapper["doc_no"]] = mod_db[self.dbmapper["doc_no"]].apply(lambda x: str(x).replace("/", ""))
+
+            joined_df = mod_dfmaster.merge(mod_db, how="left", left_on="doc_no", right_on=self.dbmapper["doc_no"])
+            return joined_df

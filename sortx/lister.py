@@ -33,6 +33,7 @@ class MiLister(MasterIndex):
 
             dfmerged = dfmerged.rename(columns=reversed_mapper)
             dfmerged = pd.concat([self.dfmaster, dfmerged], ignore_index=True)
+            dfmerged.dropna(subset=["doc_no"], inplace=True)
             self.dfmaster = dfmerged
 
         except (ValueError, FileNotFoundError) as e:
