@@ -1,5 +1,7 @@
 import os
+import re
 from datetime import datetime
+import traceback
 
 import pandas as pd
 import xlwings as xw
@@ -51,7 +53,7 @@ class MiLister(MasterIndex):
                 for doc_no in dirs:
                     if doc_no in self.dfmaster["doc_no"].values.any():
                         self.dfmaster.loc[
-                            self.dfmaster["doc_no"] == doc_no, "source_path"
+                            self.dfmaster["doc_no"] in doc_no, "source_path"
                         ] = os.path.join(root, doc_no)
                         self.dfmaster.loc[
                             self.dfmaster["doc_no"] == doc_no, "received_status"
@@ -74,3 +76,27 @@ class MiLister(MasterIndex):
             error_msg = f"{e}\nError while updating folder link"
             self.logger.error(error_msg)
             raise CustomException(error_msg)
+
+    def update_file_link(self, folder_path):
+        #TODO : Check proper working of this function
+        try:
+            mod_df = self.dfmaster.copy()["doc_no"].apply(lambda x: re.sub(r"[-_\s]", "", x))
+            for root, dirs, files in os.walk(folder_path):
+                for doc_no in files:
+                    mod_doc_no = re.sub(r"[-_\s]", "", doc_no).split(".")[0]
+                    if mod_doc_no in mod_df.values:
+                        mask = mod_df == doc_no
+                        self.dfmaster.loc[mask, "source_path"] = os.path.join(root, doc_no)
+                        self.dfmaster.loc[mask, "received_status"] = "closed"
+                        self.dfmaster.loc[mask, "processed_date"] = datetime.now().date()
+                    else:
+                        self.dfmaster.loc[len(self.dfmaster)] = {
+                            "doc_no": doc_no,
+                            "source_path": os.path.join(root, doc_no),
+                            "received_status": "closed",
+                            "imported_from": "extra files",
+                            "processed_date": datetime.now().date(),
+                        }
+
+        except Exception as e:
+            traceback.format_exc()

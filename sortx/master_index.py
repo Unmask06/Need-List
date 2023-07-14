@@ -20,7 +20,7 @@ class MasterIndex:
         self.load_master_index()
 
     def setup_logging(self, overwrite_log=True):
-        logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s",filemode="w")
 
         if overwrite_log:
             with open(self.log_file, "w"):
