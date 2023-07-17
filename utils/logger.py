@@ -27,6 +27,10 @@ class Logger:
             self.file_handler.setFormatter(formatter)
             self.logger.addHandler(self.file_handler)
 
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        self.logger.addHandler(console_handler)
+
     def info(self, message):
         self.logger.info(message)
 
