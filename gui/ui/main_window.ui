@@ -161,6 +161,19 @@
      <string>Open Master Index</string>
     </property>
    </widget>
+   <widget class="QPushButton" name="pb_RunFillData">
+    <property name="geometry">
+     <rect>
+      <x>850</x>
+      <y>170</y>
+      <width>161</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Fill data from database</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">

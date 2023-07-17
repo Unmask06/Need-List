@@ -1,9 +1,10 @@
 *.db
 /.venv
-/__pycache__
+**/__pycache__/
 *.exe
 /bkup
 /*Sorted*
 /*Received*
 /*Need*
 *trail*
+/.vscode
