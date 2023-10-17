@@ -43,13 +43,13 @@ if __name__ == "__main__":
             print(e)
             # print(traceback.format_exc())
 
-    def run_update_folder_link():
+    def run_update_folder_link(): #! Add folder and file radio button
         try:
             for key, value in paths.items():
                 set_path(key)
 
             lister = MiLister(config_file_path=paths["config"])
-            lister.update_folder_link(paths["file_path"])
+            lister.update_file_link(paths["file_path"])
             lister.write_to_excel()
 
             lister.logger.info("Done! File Path updated.")
